@@ -1,0 +1,73 @@
+stages:
+  - test
+  - build
+  - deploy
+  - pages
+  - release
+
+# Test Code
+test:
+  stage: test
+  image: python:3.9
+  script:
+    - pip install -r requirements.txt
+    - python -m pytest --cov=.
+  coverage: '/^\d+\.\d+%$/'
+  artifacts:
+    paths:
+      - coverage/
+
+# Build code
+build:
+  stage: build
+  image: python:3.9
+  script:
+    - pip install -r requirements.txt
+    - python setup.py sdist bdist_wheel
+  artifacts:
+    paths:
+      - dist/*.tar.gz
+      - dist/*.whl
+
+# Deploy code
+deploy:
+  stage: deploy
+  image: python:3.9
+  script:
+    - pip install -r requirements.txt
+    - python deploy.py
+  only:
+    - master
+
+# Create pages
+pages:
+  stage: pages
+  image: alpine
+  script:
+    - echo "Hello, World!" > public/index.html
+  artifacts:
+    paths:
+      - public
+  only:
+    - master
+
+# release code
+release:
+  stage: release
+  image: docker:latest
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE .
+    - docker push $CI_REGISTRY_IMAGE
+  only:
+    - tags
+
+# upload code
+upload:
+  stage: release
+  image: python:3.9
+  script:
+    - pip install twine
+    - twine upload --skip-existing dist/*
+  only:
+    - tags
